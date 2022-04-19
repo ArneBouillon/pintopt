@@ -41,9 +41,10 @@
 function [Y,L,k] = paraopt(A, N, Tend, y0, prop_f, prop_c, obj, prec, ...
                            krylov, tol, compextra, Y0, L0)
     d = size(A,1);
+    DT = Tend / N;
 
     if ~exist('prec', 'var'), prec = []; end
-    if ~exist('krylov', 'var'), krylov = false; end
+    if ~exist('krylov', 'var'), krylov = Krylov.None; end
     if ~exist('tol', 'var'), tol = 10^-8; end
     if ~exist('compextra', 'var'), compextra = true; end
     if ~exist('Y0', 'var'), Y0 = randn(d, N+1); end
@@ -62,16 +63,16 @@ function [Y,L,k] = paraopt(A, N, Tend, y0, prop_f, prop_c, obj, prec, ...
 
         Ps = zeros(d, N); Qs = zeros(d, N);
         for n=1:N
-            [P,Q] = prop_f(A, Y(:,n), L(:,n+1));
+            [P,Q] = prop_f((n-1)*DT, n*DT, obj, A, Y(:,n), L(:,n+1), false);
             Ps(:,n) = P; Qs(:,n) = Q;
         end
 
         F = get_F(Y, L, Ps, Qs, obj);
-        apply_jac_fun = get_apply_jac_fun(A, prop_c, obj, krylov, N);
-        
+        apply_jac_fun = get_apply_jac_fun(A, prop_c, obj, krylov, N, DT);
+
         [delta,~,~,iter] = gmres(apply_jac_fun, -F, [], [], numel(F), prec);
         nrm = norm(F);
-        
+
         disp(['Iteration ' num2str(k) ': ' num2str(nrm) ' in ' num2str(iter(end)) ' GMRES iterations'])
 
         dY = reshape(delta(1:numel(delta)/2), d, []);
@@ -81,7 +82,7 @@ function [Y,L,k] = paraopt(A, N, Tend, y0, prop_f, prop_c, obj, prec, ...
     end
     
     if compextra
-        % TODO: Comp extra
+        [Y,L] = comp_extra(Y, L, obj, prop_f, DT, Tend, A);
     end
 end
 
@@ -90,7 +91,17 @@ function [Y,L] = init_YL(Y0, L0, obj, y0)
     Y(:,1) = y0;
     L(:,1) = NaN;
     switch obj.type
-        case ObjType.Tracking, Y(:,end) = NaN; L(:,end) = NaN;
+        case ObjType.Tracking, Y(:,end) = NaN; L(:,end) = 0;
+    end
+end
+
+function [Y,L] = comp_extra(Y, L, obj, prop_f, DT, Tend, A)
+    [~,Q] = prop_f(0, DT, obj, A, Y(:,1), L(:,2), false);
+    L(:,1) = Q;
+    switch obj.type
+        case ObjType.Tracking
+            [P,~] = prop_f(Tend-DT, DT, obj, A, Y(:,end-1), L(:,end), false);
+            Y(:,end) = P;
     end
 end
 
@@ -110,14 +121,14 @@ function F = get_F(Y, L, Ps, Qs, obj)
     end
 end
 
-function apply_jac_fun = get_apply_jac_fun(A, prop_c, obj, krylov, N)
+function apply_jac_fun = get_apply_jac_fun(A, prop_c, obj, krylov, N, DT)
     switch obj.type
-        case ObjType.Tracking, apply_jac_fun = @(delta) apply_jac_track(delta, A, prop_c, krylov, N);
-        case ObjType.TerminalCost, apply_jac_fun = @(delta) apply_jac_tc(delta, A, prop_c, krylov, N);
+        case ObjType.Tracking, apply_jac_fun = @(delta) apply_jac_track(delta, A, prop_c, obj, krylov, N, DT);
+        case ObjType.TerminalCost, apply_jac_fun = @(delta) apply_jac_tc(delta, A, prop_c, obj, krylov, N, DT);
     end
 end
 
-function res = apply_jac_track(delta, A, prop_c, krylov, N)
+function res = apply_jac_track(delta, A, prop_c, obj, krylov, N, DT)
     dY = reshape(delta(1:numel(delta)/2), [], N-1);
     dL = reshape(delta(numel(delta)/2+1:end), [], N-1);
 
@@ -133,26 +144,19 @@ function res = apply_jac_track(delta, A, prop_c, krylov, N)
     res = delta;
 
     for n=1:N
-        if n == 1
-            dy = dY0;
-        else
-            dy = dY(:,n-1);
+        if n == 1, dy = dY0; else, dy = dY(:,n-1); end
+        [P,Q] = prop_c((n-1)*DT, n*DT, obj, A, dy, zeros(d,1), true);
+        if n < N
+            res((n-1)*d+1:n*d) = res((n-1)*d+1:n*d) - P;
         end
-        [P,Q] = prop_c(A, dy, zeros(d,1));
-        if n < N-1
-            res(n*d+1:(n+1)*d) = res(n*d+1:(n+1)*d) - P;
-        end
-        if n > 0
-            res((N-1)*d+(n-1)*d+1:(N-1)*d+n*d) = res((N-1)*d+(n-1)*d+1:(N-1)*d+n*d) - Q;
+        if n > 1
+            res((N-1)*d+(n-2)*d+1:(N-1)*d+(n-1)*d) = res((N-1)*d+(n-2)*d+1:(N-1)*d+(n-1)*d) - Q;
         end
     end
+
     for n=1:N
-        if n == N
-            dl = dLend;
-        else
-            dl = dL(:,n);
-        end
-        [P,Q] = prop_c(A, zeros(d,1), dl);
+        if n == N, dl = dLend; else, dl = dL(:,n); end
+        [P,Q] = prop_c((n-1)*DT, n*DT, obj, A, zeros(d,1), dl, true);
         if n < N
             res((n-1)*d+1:n*d) = res((n-1)*d+1:n*d) - P;
         end
@@ -162,7 +166,7 @@ function res = apply_jac_track(delta, A, prop_c, krylov, N)
     end
 end
 
-function apply_jac_tc(delta, A, prop_c, krylov, N)
+function apply_jac_tc(delta, A, prop_c, obj, krylov, N, Tend)
     % TODO
     raise
 end
