@@ -92,6 +92,7 @@ function [Y,L] = init_YL(Y0, L0, obj, y0)
     L(:,1) = NaN;
     switch obj.type
         case ObjType.Tracking, Y(:,end) = NaN; L(:,end) = 0;
+        case ObjType.TerminalCost
     end
 end
 
@@ -102,6 +103,7 @@ function [Y,L] = comp_extra(Y, L, obj, prop_f, DT, Tend, A)
         case ObjType.Tracking
             [P,~] = prop_f(Tend-DT, DT, obj, A, Y(:,end-1), L(:,end), false);
             Y(:,end) = P;
+        case ObjType.TerminalCost
     end
 end
 
@@ -116,7 +118,7 @@ function F = get_F(Y, L, Ps, Qs, obj)
             F = [
                 reshape(Y(:,2:end)   - Ps(:,1:end), [], 1);
                 reshape(L(:,2:end-1) - Qs(:,2:end), [], 1);
-                L(:,end) - Y(:,end) + obj.y_d;
+                L(:,end) - Y(:,end) + obj.y_T;
             ];
     end
 end
@@ -166,7 +168,38 @@ function res = apply_jac_track(delta, A, prop_c, obj, krylov, N, DT)
     end
 end
 
-function apply_jac_tc(delta, A, prop_c, obj, krylov, N, Tend)
-    % TODO
-    raise
+function res = apply_jac_tc(delta, A, prop_c, obj, krylov, N, DT)
+    dY = reshape(delta(1:numel(delta)/2), [], N);
+    dL = reshape(delta(numel(delta)/2+1:end), [], N);
+
+    d = size(dY,1);
+
+    dY0 = zeros(d,1);
+    dLend = zeros(d,1);
+
+    switch krylov
+        % TODO
+    end
+
+    res = delta;
+
+    for n=1:N
+        if n == 1, dy = dY0; else, dy = dY(:,n-1); end
+        [P,Q] = prop_c((n-1)*DT, n*DT, obj, A, dy, zeros(d,1), true);
+        res((n-1)*d+1:n*d) = res((n-1)*d+1:n*d) - P;
+        if n > 1
+            res(N*d+(n-2)*d+1:N*d+(n-1)*d) = res(N*d+(n-2)*d+1:N*d+(n-1)*d) - Q;
+        end
+    end
+
+    for n=1:N
+        dl = dL(:,n);
+        [P,Q] = prop_c((n-1)*DT, n*DT, obj, A, zeros(d,1), dl, true);
+        res((n-1)*d+1:n*d) = res((n-1)*d+1:n*d) - P;
+        if n > 1
+            res(N*d+(n-2)*d+1:N*d+(n-1)*d) = res(N*d+(n-2)*d+1:N*d+(n-1)*d) - Q;
+        end
+    end
+
+    res(end-d+1:end) = res(end-d+1:end) - dY(:,end);
 end
