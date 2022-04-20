@@ -1,9 +1,9 @@
-function [yend,l0] = prop_bvp5c_tc(tol, pts, y0, lend, Tstart, Tend, obj, A, ~)
-    d = size(A,1);
+function [yend,l0] = prop_bvp5c_tc(tol, pts, y0, lend, Tstart, Tend, obj, K, ~)
+    d = size(K,1);
 
     f = @(t,yl) [
-        A*yl(1:d) - yl(d+1:end)/obj.gamma;
-        -A*yl(d+1:end);
+        -K*yl(1:d) - yl(d+1:end)/obj.gamma;
+        K*yl(d+1:end);
     ];
     bounds = @(yla, ylb) [
         yla(1:d) - y0;

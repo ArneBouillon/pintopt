@@ -1,10 +1,10 @@
 %% ParaOpt
 % Perform ParaOpt to calculate the optimal control u(t) of the equation
-%   (1)  y'(t) = Ay(t) + u(t),    y(0) = y0
+%   (1)  y'(t) = -Ky(t) + u(t),    y(0) = y0
 % under a certain objective function.
 %
 % Parameters:
-%  - A:         Matrix in the ODE (1) to control
+%  - K:         Matrix in the ODE (1) to control
 %  - N:         Number of time intervals in which to split [0, Tend]
 %  - Tend:      The end of the time interval [0, Tend] in which to solve
 %               the problem
@@ -35,9 +35,9 @@
 %  - Y :: (d,N+1):    Y_0, Y_1, ..., Y_N at second indices 1, 2, ..., N+1
 %  - L :: (d,N+1):    L_0, L_1, ..., L_N at second indices 1, 2, ..., N+1
 %
-function [Y,L,k] = paraopt(A, N, Tend, y0, prop_f, prop_c, obj, prec, ...
+function [Y,L,k] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, prec, ...
                            krylov, tol, Y0, L0)
-    d = size(A,1);
+    d = size(K,1);
     DT = Tend / N;
 
     rng(1337)
@@ -53,7 +53,7 @@ function [Y,L,k] = paraopt(A, N, Tend, y0, prop_f, prop_c, obj, prec, ...
     if krylov.any
         P00 = zeros(d, N); Q00 = zeros(d, N);
         for n=1:N
-            [P,Q] = prop_f(zeros(d,1), zeros(d,1), (n-1)*DT, n*DT, obj, A, false);
+            [P,Q] = prop_f(zeros(d,1), zeros(d,1), (n-1)*DT, n*DT, obj, K, false);
             P00(:,n) = P; Q00(:,n) = Q;
         end
     end
@@ -62,7 +62,7 @@ function [Y,L,k] = paraopt(A, N, Tend, y0, prop_f, prop_c, obj, prec, ...
     while true
         Ps = zeros(d, N); Qs = zeros(d, N);
         for n=1:N
-            [P,Q] = prop_f(Y(:,n), L(:,n+1), (n-1)*DT, n*DT, obj, A, false);
+            [P,Q] = prop_f(Y(:,n), L(:,n+1), (n-1)*DT, n*DT, obj, K, false);
             Ps(:,n) = P; Qs(:,n) = Q;
         end
         [Y,L] = fill_in(Y, L, Ps, Qs, obj);
@@ -85,7 +85,7 @@ function [Y,L,k] = paraopt(A, N, Tend, y0, prop_f, prop_c, obj, prec, ...
         if nrm < tol, break, end
         k = k + 1;
 
-        apply_jac_fun = get_apply_jac_fun(A, @krylov_prop_c, obj, N, DT);
+        apply_jac_fun = get_apply_jac_fun(K, @krylov_prop_c, obj, N, DT);
         [delta,~,~,gmresiter] = gmres(apply_jac_fun, -F, [], [], numel(F), prec);
 
         dY = reshape(delta(1:numel(delta)/2), d, []);
@@ -141,14 +141,14 @@ function F = get_F(Y, L, Ps, Qs, obj)
     end
 end
 
-function apply_jac_fun = get_apply_jac_fun(A, prop_c, obj, N, DT)
+function apply_jac_fun = get_apply_jac_fun(K, prop_c, obj, N, DT)
     switch obj.type
-        case ObjType.Tracking, apply_jac_fun = @(delta) apply_jac_track(delta, A, prop_c, obj, N, DT);
-        case ObjType.TerminalCost, apply_jac_fun = @(delta) apply_jac_tc(delta, A, prop_c, obj, N, DT);
+        case ObjType.Tracking, apply_jac_fun = @(delta) apply_jac_track(delta, K, prop_c, obj, N, DT);
+        case ObjType.TerminalCost, apply_jac_fun = @(delta) apply_jac_tc(delta, K, prop_c, obj, N, DT);
     end
 end
 
-function res = apply_jac_track(delta, A, prop_c, obj, N, DT)
+function res = apply_jac_track(delta, K, prop_c, obj, N, DT)
     dY = reshape(delta(1:numel(delta)/2), [], N-1);
     dL = reshape(delta(numel(delta)/2+1:end), [], N-1);
 
@@ -161,7 +161,7 @@ function res = apply_jac_track(delta, A, prop_c, obj, N, DT)
     for n=1:N
         if n == 1, dy = dY0; else, dy = dY(:,n-1); end
         if n == N, dl = dLend; else, dl = dL(:,n); end
-        [P,Q] = prop_c(dy, dl, (n-1)*DT, n*DT, obj, A, true);
+        [P,Q] = prop_c(dy, dl, (n-1)*DT, n*DT, obj, K, true);
         if n < N
             res((n-1)*d+1:n*d) = res((n-1)*d+1:n*d) - P;
         end
@@ -171,7 +171,7 @@ function res = apply_jac_track(delta, A, prop_c, obj, N, DT)
     end
 end
 
-function res = apply_jac_tc(delta, A, prop_c, obj, N, DT)
+function res = apply_jac_tc(delta, K, prop_c, obj, N, DT)
     dY = reshape(delta(1:numel(delta)/2), [], N);
     dL = reshape(delta(numel(delta)/2+1:end), [], N);
 
@@ -183,7 +183,7 @@ function res = apply_jac_tc(delta, A, prop_c, obj, N, DT)
     for n=1:N
         if n == 1, dy = dY0; else, dy = dY(:,n-1); end
         dl = dL(:,n);
-        [P,Q] = prop_c(dy, dl, (n-1)*DT, n*DT, obj, A, true);
+        [P,Q] = prop_c(dy, dl, (n-1)*DT, n*DT, obj, K, true);
         res((n-1)*d+1:n*d) = res((n-1)*d+1:n*d) - P;
         if n > 1
             res(N*d+(n-2)*d+1:N*d+(n-1)*d) = res(N*d+(n-2)*d+1:N*d+(n-1)*d) - Q;

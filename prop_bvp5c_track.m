@@ -1,9 +1,9 @@
-function [yend,l0] = prop_bvp5c_track(tol, pts, y0, lend, Tstart, Tend, obj, A, deriv)
-    d = size(A,1);
+function [yend,l0] = prop_bvp5c_track(tol, pts, y0, lend, Tstart, Tend, obj, K, deriv)
+    d = size(K,1);
 
     f = @(t,yl) [
-        A*yl(1:d) - yl(d+1:end)/sqrt(obj.gamma);
-        -yl(1:d)/sqrt(obj.gamma) - A*yl(d+1:end) + (obj.y_d(t)/sqrt(obj.gamma))*(~deriv);
+        -K*yl(1:d) - yl(d+1:end)/sqrt(obj.gamma);
+        -yl(1:d)/sqrt(obj.gamma) + K*yl(d+1:end) + (obj.y_d(t)/sqrt(obj.gamma))*(~deriv);
     ];
     bounds = @(yla, ylb) [
         yla(1:d) - y0;
