@@ -19,9 +19,6 @@
 %                 Default: Krylov.None
 %  - tol:       Absolute tolerance of the ParaOpt iteration
 %                 Default: 10^-8
-%  - compextra: Whether to compute the components in Y and L that aren't
-%               needed to compute the rest, instead of setting them to NaN
-%                 Default: true
 %  - Y0:        Initial guesses for the Y variables
 %                 Default: random
 %  - L0:        Initial guesses for the L variables
@@ -39,41 +36,57 @@
 %  - L :: (d,N+1):    L_0, L_1, ..., L_N at second indices 1, 2, ..., N+1
 %
 function [Y,L,k] = paraopt(A, N, Tend, y0, prop_f, prop_c, obj, prec, ...
-                           krylov, tol, compextra, Y0, L0)
+                           krylov, tol, Y0, L0)
     d = size(A,1);
     DT = Tend / N;
 
-    if ~exist('prec', 'var'), prec = []; end
-    if ~exist('krylov', 'var'), krylov = Krylov.None; end
-    if ~exist('tol', 'var'), tol = 10^-8; end
-    if ~exist('compextra', 'var'), compextra = true; end
-    if ~exist('Y0', 'var'), Y0 = randn(d, N+1); end
-    if ~exist('L0', 'var'), L0 = randn(d, N+1); end
+    rng(1337)
+    if ~exist('prec', 'var') || isempty([]), prec = []; end
+    if ~exist('krylov', 'var') || isempty(krylov), krylov = Krylov.None; end
+    if ~exist('tol', 'var') || isempty(tol), tol = 10^-8; end
+    if ~exist('Y0', 'var') || isempty(Y0), Y0 = randn(d, N+1); end
+    if ~exist('L0', 'var') || isempty(L0), L0 = randn(d, N+1); end
 
     [Y,L] = init_YL(Y0, L0, obj, y0);
-    
+
+    P00 = []; Q00 = []; S = []; SP = []; SQ = [];
     if krylov.any
-        % TODO: Calculate 00
+        P00 = zeros(d, N); Q00 = zeros(d, N);
+        for n=1:N
+            [P,Q] = prop_f(zeros(d,1), zeros(d,1), (n-1)*DT, n*DT, obj, A, false);
+            P00(:,n) = P; Q00(:,n) = Q;
+        end
     end
 
-    k = 0;
-    nrm = +inf;
-    while nrm > tol
-        k = k + 1;
-
+    k = 0; gmresiter = 0;
+    while true
         Ps = zeros(d, N); Qs = zeros(d, N);
         for n=1:N
-            [P,Q] = prop_f((n-1)*DT, n*DT, obj, A, Y(:,n), L(:,n+1), false);
+            [P,Q] = prop_f(Y(:,n), L(:,n+1), (n-1)*DT, n*DT, obj, A, false);
             Ps(:,n) = P; Qs(:,n) = Q;
         end
+        [Y,L] = fill_in(Y, L, Ps, Qs, obj);
 
+        switch krylov
+            case Krylov.Generic
+                [S, SP, SQ] = add_orth(S, SP, SQ, [Y(:,1:N); L(:,2:end)], Ps-P00, Qs-Q00);
+            case Krylov.Specialized
+                switch obj.type
+                    case ObjType.Tracking
+                        [S, SP, SQ] = add_orth(S, SP, SQ, [[Y(:,1:N); L(:,2:end)] [L(:,2:end); -Y(:,1:N)]], [Ps-P00 Qs-Q00], [Qs-Q00 -(Ps-P00)]);
+                    case ObjType.TerminalCost
+                        [S, SP, SQ] = add_orth(S, SP, SQ, [[Y(:,1:N); L(:,2:end)] [Y(:,1:N)+L(:,2:end); L(:,2:end)]], [Ps-P00 Ps+Qs-P00-Q00], [Qs-Q00 Qs-Q00]);
+                end
+            case Krylov.None
+        end
         F = get_F(Y, L, Ps, Qs, obj);
-        apply_jac_fun = get_apply_jac_fun(A, prop_c, obj, krylov, N, DT);
-
-        [delta,~,~,iter] = gmres(apply_jac_fun, -F, [], [], numel(F), prec);
         nrm = norm(F);
+        disp(['Iteration ' num2str(k) ': ' num2str(nrm) ' in ' num2str(gmresiter(end)) ' GMRES iterations'])
+        if nrm < tol, break, end
+        k = k + 1;
 
-        disp(['Iteration ' num2str(k) ': ' num2str(nrm) ' in ' num2str(iter(end)) ' GMRES iterations'])
+        apply_jac_fun = get_apply_jac_fun(A, @krylov_prop_c, obj, N, DT);
+        [delta,~,~,gmresiter] = gmres(apply_jac_fun, -F, [], [], numel(F), prec);
 
         dY = reshape(delta(1:numel(delta)/2), d, []);
         dL = reshape(delta(numel(delta)/2+1:end), d, []);
@@ -81,8 +94,16 @@ function [Y,L,k] = paraopt(A, N, Tend, y0, prop_f, prop_c, obj, prec, ...
         L(:,2:1+size(dL,2)) = L(:,2:1+size(dL,2)) + dL;
     end
     
-    if compextra
-        [Y,L] = comp_extra(Y, L, obj, prop_f, DT, Tend, A);
+    function [P,Q] = krylov_prop_c(dy, dl, varargin)
+        if krylov.any
+            comps = S' * [dy; dl];
+            ylapprox = S * comps; yapprox = ylapprox(1:d); lapprox = ylapprox(d+1:end);
+            [P,Q] = prop_c(dy - yapprox, dl - lapprox, varargin{:});
+            P = P + SP * comps;
+            Q = Q + SQ * comps;
+        else
+            [P,Q] = prop_c(dy, dl, varargin{:});
+        end
     end
 end
 
@@ -96,13 +117,10 @@ function [Y,L] = init_YL(Y0, L0, obj, y0)
     end
 end
 
-function [Y,L] = comp_extra(Y, L, obj, prop_f, DT, Tend, A)
-    [~,Q] = prop_f(0, DT, obj, A, Y(:,1), L(:,2), false);
-    L(:,1) = Q;
+function [Y,L] = fill_in(Y, L, Ps, Qs, obj)
+    L(:,1) = Qs(:,1);
     switch obj.type
-        case ObjType.Tracking
-            [P,~] = prop_f(Tend-DT, DT, obj, A, Y(:,end-1), L(:,end), false);
-            Y(:,end) = P;
+        case ObjType.Tracking, Y(:,end) = Ps(:,end);
         case ObjType.TerminalCost
     end
 end
@@ -123,14 +141,14 @@ function F = get_F(Y, L, Ps, Qs, obj)
     end
 end
 
-function apply_jac_fun = get_apply_jac_fun(A, prop_c, obj, krylov, N, DT)
+function apply_jac_fun = get_apply_jac_fun(A, prop_c, obj, N, DT)
     switch obj.type
-        case ObjType.Tracking, apply_jac_fun = @(delta) apply_jac_track(delta, A, prop_c, obj, krylov, N, DT);
-        case ObjType.TerminalCost, apply_jac_fun = @(delta) apply_jac_tc(delta, A, prop_c, obj, krylov, N, DT);
+        case ObjType.Tracking, apply_jac_fun = @(delta) apply_jac_track(delta, A, prop_c, obj, N, DT);
+        case ObjType.TerminalCost, apply_jac_fun = @(delta) apply_jac_tc(delta, A, prop_c, obj, N, DT);
     end
 end
 
-function res = apply_jac_track(delta, A, prop_c, obj, krylov, N, DT)
+function res = apply_jac_track(delta, A, prop_c, obj, N, DT)
     dY = reshape(delta(1:numel(delta)/2), [], N-1);
     dL = reshape(delta(numel(delta)/2+1:end), [], N-1);
 
@@ -139,26 +157,11 @@ function res = apply_jac_track(delta, A, prop_c, obj, krylov, N, DT)
     dY0 = zeros(d,1);
     dLend = zeros(d,1);
 
-    switch krylov
-        % TODO
-    end
-
     res = delta;
-
     for n=1:N
         if n == 1, dy = dY0; else, dy = dY(:,n-1); end
-        [P,Q] = prop_c((n-1)*DT, n*DT, obj, A, dy, zeros(d,1), true);
-        if n < N
-            res((n-1)*d+1:n*d) = res((n-1)*d+1:n*d) - P;
-        end
-        if n > 1
-            res((N-1)*d+(n-2)*d+1:(N-1)*d+(n-1)*d) = res((N-1)*d+(n-2)*d+1:(N-1)*d+(n-1)*d) - Q;
-        end
-    end
-
-    for n=1:N
         if n == N, dl = dLend; else, dl = dL(:,n); end
-        [P,Q] = prop_c((n-1)*DT, n*DT, obj, A, zeros(d,1), dl, true);
+        [P,Q] = prop_c(dy, dl, (n-1)*DT, n*DT, obj, A, true);
         if n < N
             res((n-1)*d+1:n*d) = res((n-1)*d+1:n*d) - P;
         end
@@ -168,33 +171,19 @@ function res = apply_jac_track(delta, A, prop_c, obj, krylov, N, DT)
     end
 end
 
-function res = apply_jac_tc(delta, A, prop_c, obj, krylov, N, DT)
+function res = apply_jac_tc(delta, A, prop_c, obj, N, DT)
     dY = reshape(delta(1:numel(delta)/2), [], N);
     dL = reshape(delta(numel(delta)/2+1:end), [], N);
 
     d = size(dY,1);
 
     dY0 = zeros(d,1);
-    dLend = zeros(d,1);
-
-    switch krylov
-        % TODO
-    end
 
     res = delta;
-
     for n=1:N
         if n == 1, dy = dY0; else, dy = dY(:,n-1); end
-        [P,Q] = prop_c((n-1)*DT, n*DT, obj, A, dy, zeros(d,1), true);
-        res((n-1)*d+1:n*d) = res((n-1)*d+1:n*d) - P;
-        if n > 1
-            res(N*d+(n-2)*d+1:N*d+(n-1)*d) = res(N*d+(n-2)*d+1:N*d+(n-1)*d) - Q;
-        end
-    end
-
-    for n=1:N
         dl = dL(:,n);
-        [P,Q] = prop_c((n-1)*DT, n*DT, obj, A, zeros(d,1), dl, true);
+        [P,Q] = prop_c(dy, dl, (n-1)*DT, n*DT, obj, A, true);
         res((n-1)*d+1:n*d) = res((n-1)*d+1:n*d) - P;
         if n > 1
             res(N*d+(n-2)*d+1:N*d+(n-1)*d) = res(N*d+(n-2)*d+1:N*d+(n-1)*d) - Q;
@@ -202,4 +191,23 @@ function res = apply_jac_tc(delta, A, prop_c, obj, krylov, N, DT)
     end
 
     res(end-d+1:end) = res(end-d+1:end) - dY(:,end);
+end
+
+function [S, SP, SQ] = add_orth(S, SP, SQ, newS, newSP, newSQ)
+    for i=1:size(newS,2)
+        s = newS(:,i); sp = newSP(:,i); sq = newSQ(:,i);
+
+        for ii=1:2 % Re-orthogonalisation
+            if S
+                comps = S'*s;
+                s = s - S*comps; sp = sp - SP*comps; sq = sq - SQ*comps;
+            end
+
+            scale = norm(s);
+            if scale < sqrt(eps), break, end
+            s = s / scale; sp = sp / scale; sq = sq / scale;
+
+            if ii==2, S = [S s]; SP = [SP sp]; SQ = [SQ sq]; end
+        end
+    end
 end

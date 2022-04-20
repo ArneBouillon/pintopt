@@ -1,4 +1,4 @@
-function [yend,l0] = prop_bvp5c_track(tol, pts, Tstart, Tend, obj, A, y0, lend, deriv)
+function [yend,l0] = prop_bvp5c_track(tol, pts, y0, lend, Tstart, Tend, obj, A, deriv)
     d = size(A,1);
 
     f = @(t,yl) [

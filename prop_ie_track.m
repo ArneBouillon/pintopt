@@ -1,5 +1,5 @@
 % TODO: Construct the sparse matrices faster
-function [yend,l0] = prop_ie_track(steps, Tstart, Tend, obj, A, y0, lend, deriv)
+function [yend,l0] = prop_ie_track(steps, y0, lend, Tstart, Tend, obj, A, deriv)
     d = size(A,1);
     fll = 2*(steps+1)*d;
     half = fll / 2;

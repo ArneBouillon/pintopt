@@ -1,4 +1,4 @@
-function [yend,l0] = prop_bvp5c_tc(tol, pts, Tstart, Tend, obj, A, y0, lend, ~)
+function [yend,l0] = prop_bvp5c_tc(tol, pts, y0, lend, Tstart, Tend, obj, A, ~)
     d = size(A,1);
 
     f = @(t,yl) [

@@ -24,10 +24,10 @@ prop_f = @(varargin) prop_ie_track(1000, varargin{:});
 prop_c = @(varargin) prop_ie_track(1, varargin{:});
 % prop_f = @(varargin) prop_bvp5c_track(.000001, 500, varargin{:});
 % prop_c = @(varargin) prop_bvp5c_track(.001, 5, varargin{:});
-[Y,L] = paraopt(A, N, Tend, y0, prop_f, prop_c, obj);
+[Y,L] = paraopt(A, N, Tend, y0, prop_f, prop_c, obj, [], Krylov.None);
 
 %% Terminal-cost case
-d = 5;
+d = 50;
 N = 10;
 
 Tend = 1e-2;
@@ -47,8 +47,8 @@ y0 = exp(-100*(x-.5).^2);
 yT = .5*exp(-100*(x-.25).^2)+.5*exp(-100*(x-.75).^2);
 obj = Obj(ObjType.TerminalCost, gamma, yT);
 
-prop_f = @(varargin) prop_ie_tc(1000, varargin{:});
+prop_f = @(varargin) prop_ie_tc(100, varargin{:});
 prop_c = @(varargin) prop_ie_tc(1, varargin{:});
 % prop_f = @(varargin) prop_bvp5c_tc(.000001, 500, varargin{:});
 % prop_c = @(varargin) prop_bvp5c_tc(.000001, 5, varargin{:});
-[Y,L] = paraopt(A, N, Tend, y0, prop_f, prop_c, obj);
+[Y,L] = paraopt(A, N, Tend, y0, prop_f, prop_c, obj, [], Krylov.None);
