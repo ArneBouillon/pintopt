@@ -13,7 +13,7 @@
 %  - prop_c:    The coarse propagator to use
 %  - obj:       Info about the objective function (see Obj class)
 %  - prec:      Info about the preconditioner to use
-%                 Default: []
+%                 Default: No preconditioner
 %  - krylov:    Information about whether to use Krylov-enhanced versions
 %               of ParaOpt (see Krylov class)
 %                 Default: Krylov.None
