@@ -28,6 +28,7 @@
 %  - Y:      Discretised solution to (1)
 %  - L:      Discretised adjoint
 %  - k:      Number of (outer) ParaOpt iterations
+%  - res:    An array containing the residual norm in each iteration
 %
 % Internal data layout:
 %  - Size of systems: - 2*d*(N-1) for tracking-type objectives
@@ -35,8 +36,8 @@
 %  - Y :: (d,N+1):    Y_0, Y_1, ..., Y_N at second indices 1, 2, ..., N+1
 %  - L :: (d,N+1):    L_0, L_1, ..., L_N at second indices 1, 2, ..., N+1
 %
-function [Y,L,k] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, prec, ...
-                           krylov, tol, Y0, L0)
+function [Y,L,k,res] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, prec, ...
+                               krylov, tol, Y0, L0)
     d = size(K,1);
     DT = Tend / N;
 
@@ -58,7 +59,7 @@ function [Y,L,k] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, prec, ...
         end
     end
 
-    k = 0; gmresiter = 0;
+    k = 0; gmresiter = 0; res = [];
     while true
         Ps = zeros(d, N); Qs = zeros(d, N);
         for n=1:N
@@ -81,6 +82,7 @@ function [Y,L,k] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, prec, ...
         end
         F = get_F(Y, L, Ps, Qs, obj);
         nrm = norm(F);
+        res = [res nrm];
         disp(['Iteration ' num2str(k) ': ' num2str(nrm) ' in ' num2str(gmresiter(end)) ' GMRES iterations'])
         if nrm < tol, break, end
         k = k + 1;

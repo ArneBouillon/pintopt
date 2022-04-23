@@ -3,7 +3,7 @@
 %
 classdef ObjType
     enumeration
-        Tracking, TerminalCost
+        Tracking, TerminalCost, TerminalCostMod
     end
 end
 
