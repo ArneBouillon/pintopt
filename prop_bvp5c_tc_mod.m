@@ -1,11 +1,11 @@
-function [yend,l0] = prop_bvp5c_tc(tol, pts, y0, lend, Tstart, Tend, obj, K, ~)
+function [yend,l0] = prop_bvp5c_tc_mod(tol, pts, y0, lend, Tstart, Tend, obj, K, ~)
     d = size(K,1);
 
     f = @(t,yl) [
-        -K*yl(1:d) - yl(d+1:end)/obj.gamma;
-        K*yl(d+1:end);
+        (-K-eye(d)/obj.gamma)*yl(1:d) - yl(d+1:end)/obj.gamma;
+        (2*K+eye(d)/obj.gamma)*yl(1:d) + (K+eye(d)/obj.gamma)*yl(d+1:end);
     ];
-    fjac = sparse([-K -eye(d)/obj.gamma; zeros(d) K]);
+    fjac = sparse([-K-eye(d)/obj.gamma, -eye(d)/obj.gamma; 2*K+eye(d)/obj.gamma, K+eye(d)/obj.gamma]);
     bounds = @(yla, ylb) [
         yla(1:d) - y0;
         ylb(d+1:end) - lend;
