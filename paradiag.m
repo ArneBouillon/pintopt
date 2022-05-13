@@ -1,31 +1,37 @@
 %% ParaDiag
 %
-function [Y,L] = paradiag(K, N, Tend, y0, obj, precinfo)
-    if ~exist('precinfo','var') || isempty(precinfo), precinfo = []; end
+function [Y,L] = paradiag(K, N, Tend, y0, obj, precinfo, showeigs)
+    if ~exist('precinfo', 'var') || isempty(precinfo), precinfo = []; end
+    if ~exist('showeigs', 'var') || isempty(showeigs), showeigs = false; end
 
     dt = Tend / N;
 
     [A,b] = construct_system(K, N, dt, y0, obj);
     prec = get_prec(A, K, N, Tend, obj, precinfo);
-
-    n = size(A,1);
-    prc = prec;
-%     prc = zeros(n,n);
-%     for i=1:n
-% %         disp([num2str(i) ' / ' num2str(n)])
-%         v = zeros(n,1); v(i) = 1;
-%         prc(:,i) = prec(v);
-%     end
-%     precinfo.test = true;
-%     prec = get_prec(A, K, N, Tend, obj, precinfo);
-%     imshow(abs(inv(prc))), figure, imshow(abs(full(prec)))
-%     imshow(abs(prc*prec)),pause
-%     imshow(abs(inv(prc)-prec)), norm(abs(inv(prc)-prec)), figure, imshow(abs(prc*prec)), pause
-%     condest(prc\A)
-    figure(1),e=eig(full(prc\A));scatter(real(e),imag(e)),pause
-    Y=A;L=prc;return
-%     spy(abs(inv(prc)) > .00001), figure, spy(A)
-%     disp(['  Cond: ' num2str(condest(A))])
+    
+    if showeigs
+        assert(precinfo.test)
+        figure, e = eig(full(prec\A)); scatter(real(e), imag(e))
+    end
+% 
+%     n = size(A,1);
+%     prc = prec;
+% %     prc = zeros(n,n);
+% %     for i=1:n
+% % %         disp([num2str(i) ' / ' num2str(n)])
+% %         v = zeros(n,1); v(i) = 1;
+% %         prc(:,i) = prec(v);
+% %     end
+% %     precinfo.test = true;
+% %     prec = get_prec(A, K, N, Tend, obj, precinfo);
+% %     imshow(abs(inv(prc))), figure, imshow(abs(full(prec)))
+% %     imshow(abs(prc*prec)),pause
+% %     imshow(abs(inv(prc)-prec)), norm(abs(inv(prc)-prec)), figure, imshow(abs(prc*prec)), pause
+% %     condest(prc\A)
+%     figure(1),e=eig(full(prc\A));scatter(real(e),imag(e)),pause
+% %     Y=A;L=prc;return
+% %     spy(abs(inv(prc)) > .00001), figure, spy(A)
+% %     disp(['  Cond: ' num2str(condest(A))])
 
     [sol,flag,relres,iter] = gmres(A, b, [], [], 20, prec);
 

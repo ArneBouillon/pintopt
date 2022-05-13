@@ -53,12 +53,14 @@ function [Y,L,k,res] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ..
 
     [Y,L] = init_YL(Y0, L0, obj, y0);
 
-    P00 = []; Q00 = []; S = []; SP = []; SQ = [];
+    P00 = []; Q00 = []; Pc00 = []; Qc00 = []; S = []; SP = []; SQ = [];
     if krylov.any
-        P00 = zeros(d, N); Q00 = zeros(d, N);
+        P00 = zeros(d, N); Q00 = zeros(d, N); Pc00 = zeros(d, N); Qc00 = zeros(d, N);
         for n=1:N
             [P,Q] = prop_f(zeros(d,1), zeros(d,1), (n-1)*DT, n*DT, obj, K, false);
             P00(:,n) = P; Q00(:,n) = Q;
+            [P,Q] = prop_c(zeros(d,1), zeros(d,1), (n-1)*DT, n*DT, obj, K, false);
+            Pc00(:,n) = P; Qc00(:,n) = Q;
         end
     end
 
@@ -128,15 +130,21 @@ function [Y,L,k,res] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ..
         L(:,2:1+size(dL,2)) = L(:,2:1+size(dL,2)) + dL;
     end
 
-    function [P,Q] = krylov_prop_c(dy, dl, varargin)
+    function [P,Q] = krylov_prop_c(dy, dl, tstart, tend, obj, K, deriv)
         if krylov.any
+            nn = tend / DT;
+            
             comps = S' * [dy; dl];
             ylapprox = S * comps; yapprox = ylapprox(1:d); lapprox = ylapprox(d+1:end);
-            [P,Q] = prop_c(dy - yapprox, dl - lapprox, varargin{:});
+            [P,Q] = prop_c(dy - yapprox, dl - lapprox, tstart, tend, obj, K, deriv);
             P = P + SP * comps;
             Q = Q + SQ * comps;
+            if ~deriv
+                P = P - Pc00(:,nn) + P00(:,nn);
+                Q = Q - Qc00(:,nn) + Q00(:,nn);
+            end
         else
-            [P,Q] = prop_c(dy, dl, varargin{:});
+            [P,Q] = prop_c(dy, dl, tstart, tend, obj, K, deriv);
         end
     end
 end
