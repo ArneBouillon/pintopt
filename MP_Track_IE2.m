@@ -1,4 +1,4 @@
-classdef MP_TC_IE1 < handle
+classdef MP_Track_IE2 < handle
     properties
         d
         I_
@@ -12,19 +12,19 @@ classdef MP_TC_IE1 < handle
     end
 
     methods
-        function mp = MP_TC_IE1(K, obj, dt)
+        function mp = MP_Track_IE2(K, obj, dt)
             d = size(K, 1);
             mp.d = d;
 
-            mp.I_ = speye(d) + dt*K;
-            mp.Phi_ = speye(d);
-            mp.Psi_ = dt/obj.gamma*speye(d);
+            mp.I_ = (speye(d) + dt/2*K)^2*((speye(d) + dt/2*K)^2 + (dt/sqrt(obj.gamma)/2*speye(d))^2);
+            mp.Phi_ = ((speye(d) + dt/2*K)^2 + (dt/sqrt(obj.gamma)/2*speye(d))^2) - (speye(d) + dt/2*K)^2*(dt/sqrt(obj.gamma)/2*speye(d))^2;
+            mp.Psi_ = (dt/sqrt(obj.gamma)/2*speye(d))*(speye(d) + dt/2*K)*(((speye(d) + dt/2*K)^2 + (dt/sqrt(obj.gamma)/2*speye(d))^2) + speye(d));
 
             mp.I = mp.I_;
             mp.Phi_f = mp.Phi_;
             mp.Phi_b = mp.Phi_;
             mp.Psi_f = mp.Psi_;
-            mp.Psi_b = sparse(d,d);
+            mp.Psi_b = mp.Psi_;
         end
 
         function update_krylov(self, S, SP, SQ)
@@ -37,9 +37,11 @@ classdef MP_TC_IE1 < handle
             self.Psi_f = self.Psi_ * nonproj(1:self.d,self.d+1:end) ...
                 - self.Phi_ * nonproj(self.d+1:end,self.d+1:end) ...
                 - self.I * Pproj(:,self.d+1:end);
-            self.Psi_b = self.Phi_ * nonproj(self.d+1:end,1:self.d) ...
+            self.Psi_b = self.Psi_ * nonproj(1:self.d,1:self.d) ...
+                + self.Phi_ * nonproj(self.d+1:end,1:self.d) ...
                 + self.I * Qproj(:,1:self.d);
             self.Phi_b = self.Phi_ * nonproj(1:self.d,self.d+1:end) ...
+                + self.Psi_ * nonproj(self.d+1:end,self.d+1:end) ...
                 + self.I * Qproj(:,self.d+1:end);
         end
     end

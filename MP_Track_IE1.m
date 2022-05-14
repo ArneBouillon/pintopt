@@ -15,9 +15,11 @@ classdef MP_Track_IE1 < handle
         function mp = MP_Track_IE1(K, obj, dt)
             d = size(K, 1);
             mp.d = d;
+
             mp.I_ = speye(d) + dt*K;
             mp.Phi_ = speye(d);
             mp.Psi_ = dt/sqrt(obj.gamma)*speye(d);
+
             mp.I = mp.I_;
             mp.Phi_f = mp.Phi_;
             mp.Phi_b = mp.Phi_;

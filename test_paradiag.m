@@ -49,5 +49,5 @@ y0 = exp(-100*(x-.5).^2);
 yT = .5*exp(-100*(x-.25).^2)+.5*exp(-100*(x-.75).^2);
 obj = Obj(ObjType.TerminalCost, gamma, yT);
 
-precinfo = Prec(PrecType.TerminalCost, struct('alpha', .0001, 'test', false), obj);
+precinfo = Prec(PrecType.TerminalCost, struct('alpha', .0001, 'test', true), obj);
 tic, [Y,L] = paradiag(K, N, Tend, y0, obj, precinfo); toc

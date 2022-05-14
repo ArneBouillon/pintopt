@@ -1,4 +1,4 @@
-classdef MP_TC_IE1 < handle
+classdef MP_TC_IE2 < handle
     properties
         d
         I_
@@ -12,13 +12,13 @@ classdef MP_TC_IE1 < handle
     end
 
     methods
-        function mp = MP_TC_IE1(K, obj, dt)
+        function mp = MP_TC_IE2(K, obj, dt)
             d = size(K, 1);
             mp.d = d;
-
-            mp.I_ = speye(d) + dt*K;
-            mp.Phi_ = speye(d);
-            mp.Psi_ = dt/obj.gamma*speye(d);
+            
+            mp.I_ = (speye(d)+dt/2*K)^4;
+            mp.Phi_ = (speye(d)+dt/2*K)^2;
+            mp.Psi_ = dt/2/obj.gamma*speye(d)*(speye(d) + (speye(d)+dt/2*K)^2);
 
             mp.I = mp.I_;
             mp.Phi_f = mp.Phi_;

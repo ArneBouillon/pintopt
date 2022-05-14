@@ -1,6 +1,6 @@
 %% Tracking case
 d = 100;
-N = 100;
+N = 10;
 
 Tend = .01;
 xbegin = 0;
@@ -22,12 +22,12 @@ yd = @(t) y0;
 obj = Obj(ObjType.Tracking, gamma, yd);
 
 prop_f = @(varargin) prop_ie_track(10, varargin{:});
-prop_c = @(varargin) prop_ie_track(1, varargin{:});
+prop_c = @(varargin) prop_ie_track(2, varargin{:});
 % prop_f = @(varargin) prop_bvp5c_track(.000001, 50, varargin{:});
 % prop_c = @(varargin) prop_bvp5c_track(.01, 5, varargin{:});
-mp_c = MP_Track_IE1(K, obj, Tend/N);
+mp_c = MP_Track_IE2(K, obj, Tend/N);
 precinfo = Prec(PrecType.Tracking, struct('alpha', -1, 'test', false), obj);
-tic, [Y,L] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, Krylov.Specialized, mp_c, 1e-6, 1e-4); toc
+tic, [Y,L] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, Krylov.None, mp_c, 1e-6, 1e-4); toc
 
 return
 %% Terminal-cost case
@@ -57,7 +57,7 @@ prop_c = @(varargin) prop_ie_tc(1, varargin{:});
 % prop_c = @(varargin) prop_bvp5c_tc(.001, 5, varargin{:});
 precinfo = Prec(PrecType.TerminalCost, struct('alpha', -1, 'test', false), obj);
 mp_c = MP_TC_IE1(K, obj, Tend/N);
-[Y,L] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, Krylov.Specialized, mp_c);
+[Y,L] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, Krylov.None, mp_c);
 
 %% Example for Krylov
 d = 1000;
