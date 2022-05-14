@@ -1,31 +1,19 @@
-% TODO: Construct the sparse matrices faster
 function [yend,l0] = prop_ie_tc(steps, y0, lend, Tstart, Tend, obj, K, deriv)
     d = size(K,1);
-    fll = 2*(steps+1)*d;
-    half = fll / 2;
-
     dt = (Tend - Tstart) / steps;
     IpKdt = speye(d) + K*dt;
-
-    M = sparse(fll,fll);
-    b = sparse(fll,1);
-    M(1:d,1:d) = speye(d); b(1:d) = y0;
-    M(end-d+1:end,end-d+1:end) = speye(d); b(end-d+1:end) = lend;
-
-    for i=1:steps
-        idx = (i-1)*d+1:i*d;
-        M(idx+d,idx) = eye(d);
-        M(idx+d,idx+d) = -IpKdt;
-        M(idx+d,idx+half+d) = -dt/obj.gamma*eye(d);
+    
+    ls = NaN(d, steps+1);
+    ls(:,end) = lend;
+    for i=steps:-1:1
+        ls(:,i) = IpKdt\ls(:,i+1);
     end
-
-    for i=1:steps
-        idx = (i-1)*d+1:i*d;
-        M(idx+half,idx+half) = -IpKdt;
-        M(idx+half,idx+half+d) = eye(d);
+    l0 = ls(:,1);
+    
+    ys = NaN(d, steps+1);
+    ys(:,1) = y0;
+    for i=2:steps+1
+        ys(:,i) = IpKdt\(ys(:,i-1) - dt/obj.gamma*ls(:,i));
     end
-
-    solved = M\b;
-    yend = solved(half-d+1:half);
-    l0 = solved(half+1:half+d);
+    yend = ys(:,end);
 end

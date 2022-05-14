@@ -23,7 +23,7 @@ classdef Obj
             obj.type = type;
             obj.gamma = gamma;
             switch type
-                case {ObjType.TerminalCost, ObjType.TerminalCostMod}, obj.y_T = varargin{1};
+                case ObjType.TerminalCost, obj.y_T = varargin{1};
                 case ObjType.Tracking, obj.y_d = varargin{1};
             end
         end

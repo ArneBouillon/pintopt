@@ -1,5 +1,5 @@
 classdef PrecType
     enumeration
-        Tracking, TerminalCost1, TerminalCost2, TerminalCostMod
+        Tracking, TerminalCost
     end
 end
