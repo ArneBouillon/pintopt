@@ -86,6 +86,7 @@ function [Y,L,k,res] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ..
                 end
             case Krylov.None
         end
+
         F = get_F(Y, L, Ps, Qs, obj);
         nrm = norm(F);
         res = [res nrm];
@@ -218,8 +219,7 @@ function res = prec_fun(vec, K, krylov_prop_c, mp_c, obj, N, DT, precinfo)
     vec = reshape(vec, 2*M*d, 1)*sqrt(M);
 
     % Step 3: Solve systems
-    D = zeros(M,1); D(2) = precinfo.alpha^(1/M); D = M*ifft(D);
-    D2 = zeros(M,1); D2(2) = precinfo.alpha^(1/M); D2(end) = precinfo.alpha^((M-1)/M); D2 = M*ifft(D2);
+    D = zeros(M,1); D(2) = -precinfo.alpha^(1/M); D = M*ifft(D);
     for m=1:M
         if isempty(mp_c)
             [sol,~,~,~] = gmres(...
@@ -229,8 +229,8 @@ function res = prec_fun(vec, K, krylov_prop_c, mp_c, obj, N, DT, precinfo)
             );
         else
             sol = [
-                mp_c.I - D(m)*mp_c.Phi_f, mp_c.Psi_f;
-                -mp_c.Psi_b, mp_c.I - D(m)'*mp_c.Phi_b;
+                mp_c.I + D(m)*mp_c.Phi_f, mp_c.Psi_f;
+                -mp_c.Psi_b, mp_c.I + D(m)'*mp_c.Phi_b;
             ] \ [mp_c.I*vec((m-1)*d+1:m*d); mp_c.I*vec(M*d+(m-1)*d+1:M*d+m*d)];
         end
         vec((m-1)*d+1:m*d) = sol(1:d);
@@ -252,10 +252,10 @@ function res = prec_fun(vec, K, krylov_prop_c, mp_c, obj, N, DT, precinfo)
 
     function prd = subsys(v)
         prd = v;
-        [P,~] = krylov_prop_c(D(m)*v(1:d), v(d+1:end), m*DT, (m+1)*DT, obj, K, true);
-        prd(1:d) = prd(1:d) - P;
-        [~,Q] = krylov_prop_c(v(1:d), D(m)'*v(d+1:end), m*DT, (m+1)*DT, obj, K, true);
-        prd(d+1:end) = prd(d+1:end) - Q;
+        [P,~] = krylov_prop_c(D(m)*v(1:d), -v(d+1:end), m*DT, (m+1)*DT, obj, K, true);
+        prd(1:d) = prd(1:d) + P;
+        [~,Q] = krylov_prop_c(-v(1:d), D(m)'*v(d+1:end), m*DT, (m+1)*DT, obj, K, true);
+        prd(d+1:end) = prd(d+1:end) + Q;
     end
 end
 
