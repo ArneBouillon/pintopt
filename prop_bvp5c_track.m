@@ -1,4 +1,8 @@
-function [yend,l0] = prop_bvp5c_track(tol, pts, y0, lend, Tstart, Tend, obj, K, ~)
+% TODO: y_d
+function [yend,l0] = prop_bvp5c_track(y0, lend, Tstart, Tend, obj, K, ~, tol, pts)
+    if ~exist('tol', 'var'), tol = 1e-6; end
+    if ~exist('pts', 'var'), pts = 5; end
+
     d = size(K,1);
 
     f = @(t,yl) [

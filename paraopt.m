@@ -1,4 +1,4 @@
-%% ParaOpt
+%% Linear ParaOpt
 % Perform ParaOpt to calculate the optimal control u(t) of the equation
 %   (1)  y'(t) = -Ky(t) + u(t),    y(0) = y0
 % under a certain objective function.
@@ -14,9 +14,9 @@
 %  - obj:       Info about the objective function (see Obj class)
 %  - precinfo:  Info about the preconditioner to use
 %                 Default: No preconditioner
-%  - krylov:    Information about whether to use Krylov-enhanced versions
-%               of ParaOpt (see Krylov class)
-%                 Default: Krylov.None
+%  - subenh:    Information about whether to use subspace-enhanced versions
+%               of ParaOpt (see SubEnh class)
+%                 Default: SubEnh.None
 %  - tol:       Absolute tolerance of the ParaOpt iteration
 %                 Default: 10^-8
 %  - gmrestol:  Relative residual tolerance of the inner GMRES solver
@@ -39,13 +39,13 @@
 %  - L :: (d,N+1):    L_0, L_1, ..., L_N at second indices 1, 2, ..., N+1
 %
 function [Y,L,k,res] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ...
-                               krylov, mp_c, tol, gmrestol, Y0, L0)
+                               subenh, mp_c, tol, gmrestol, Y0, L0)
     d = size(K,1);
     DT = Tend / N;
 
     rng(1337)
     if ~exist('precinfo', 'var') || isempty(precinfo), precinfo = []; end
-    if ~exist('krylov', 'var') || isempty(krylov), krylov = Krylov.None; end
+    if ~exist('subenh', 'var') || isempty(subenh), subenh = SubEnh.None; end
     if ~exist('mp_c', 'var') || isempty(mp_c), mp_c = []; end
     if ~exist('tol', 'var') || isempty(tol), tol = 10^-8; end
     if ~exist('gmrestol', 'var') || isempty(gmrestol), gmrestol = 10^-3; end
@@ -55,7 +55,7 @@ function [Y,L,k,res] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ..
     [Y,L] = init_YL(Y0, L0, obj, y0);
 
     P00 = []; Q00 = []; Pc00 = []; Qc00 = []; S = []; SP = []; SQ = [];
-    if krylov.any
+    if subenh.any
         P00 = zeros(d, N); Q00 = zeros(d, N); Pc00 = zeros(d, N); Qc00 = zeros(d, N);
         for n=1:N
             [P,Q] = prop_f(zeros(d,1), zeros(d,1), (n-1)*DT, n*DT, obj, K, false);
@@ -74,17 +74,17 @@ function [Y,L,k,res] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ..
         end
         [Y,L] = fill_in(Y, L, Ps, Qs, obj);
 
-        switch krylov
-            case Krylov.Generic
+        switch subenh
+            case SubEnh.Generic
                 [S, SP, SQ] = add_orth(S, SP, SQ, [Y(:,1:N); L(:,2:end)], Ps-P00, Qs-Q00);
-            case Krylov.Specialized
+            case SubEnh.Specialized
                 switch obj.type
                     case ObjType.Tracking
                         [S, SP, SQ] = add_orth(S, SP, SQ, [[Y(:,1:N); L(:,2:end)] [L(:,2:end); -Y(:,1:N)]], [Ps-P00 Qs-Q00], [Qs-Q00 -(Ps-P00)]);
                     case ObjType.TerminalCost
                         [S, SP, SQ] = add_orth(S, SP, SQ, [[Y(:,1:N); L(:,2:end)] [Y(:,1:N)+L(:,2:end); L(:,2:end)]], [Ps-P00 Ps+Qs-P00-Q00], [Qs-Q00 Qs-Q00]);
                 end
-            case Krylov.None
+            case SubEnh.None
         end
 
         F = get_F(Y, L, Ps, Qs, obj);
@@ -94,11 +94,11 @@ function [Y,L,k,res] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ..
         if nrm < tol, break, end
         k = k + 1;
 
-        if krylov.any && ~isempty(mp_c), mp_c.update_krylov(S, SP, SQ), end
-        apply_jac_fun = get_apply_jac_fun(K, @krylov_prop_c, obj, N, DT);
-        prec = get_prec(apply_jac_fun, K, @krylov_prop_c, mp_c, obj, N, DT, precinfo);
+        if subenh.any && ~isempty(mp_c), mp_c.update_subenh(S, SP, SQ), end
+        apply_jac_fun = get_apply_jac_fun(K, @subenh_prop_c, obj, N, DT);
+        prec = get_prec(apply_jac_fun, K, @subenh_prop_c, mp_c, obj, N, DT, precinfo);
 
-        [delta,flag,relres,gmresiter] = gmres(apply_jac_fun, -F, [], gmrestol, 100, prec);
+        [delta,flag,relres,gmresiter] = gmres(apply_jac_fun, -F, [], gmrestol, min(100, numel(F)), prec);
 
         dY = reshape(delta(1:numel(delta)/2), d, []);
         dL = reshape(delta(numel(delta)/2+1:end), d, []);
@@ -106,8 +106,8 @@ function [Y,L,k,res] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ..
         L(:,2:1+size(dL,2)) = L(:,2:1+size(dL,2)) + dL;
     end
 
-    function [P,Q] = krylov_prop_c(dy, dl, tstart, tend, obj, K, deriv)
-        if krylov.any
+    function [P,Q] = subenh_prop_c(dy, dl, tstart, tend, obj, K, deriv)
+        if subenh.any
             nn = tend / DT;
             
             comps = S' * [dy; dl];
@@ -159,7 +159,7 @@ function F = get_F(Y, L, Ps, Qs, obj)
     end
 end
 
-function prec = get_prec(A, K, krylov_prop_c, mp_c, obj, N, DT, precinfo)
+function prec = get_prec(A, K, prop_c, mp_c, obj, N, DT, precinfo)
     d = size(K, 1);
 
     if isempty(precinfo)
@@ -172,7 +172,7 @@ function prec = get_prec(A, K, krylov_prop_c, mp_c, obj, N, DT, precinfo)
         return
     end
 
-    prec = @(vec) prec_fun(vec, K, krylov_prop_c, mp_c, obj, N, DT, precinfo);
+    prec = @(vec) prec_fun(vec, K, prop_c, mp_c, obj, N, DT, precinfo);
 end
 
 function prec = get_test_prec(Afun, d, N, obj, precinfo)
@@ -199,7 +199,7 @@ function prec = get_test_prec(Afun, d, N, obj, precinfo)
     end
 end
 
-function res = prec_fun(vec, K, krylov_prop_c, mp_c, obj, N, DT, precinfo)
+function res = prec_fun(vec, K, prop_c, mp_c, obj, N, DT, precinfo)
     d = size(K, 1);
 
     switch precinfo.type % Set the size of the system
@@ -252,9 +252,9 @@ function res = prec_fun(vec, K, krylov_prop_c, mp_c, obj, N, DT, precinfo)
 
     function prd = subsys(v)
         prd = v;
-        [P,~] = krylov_prop_c(D(m)*v(1:d), -v(d+1:end), m*DT, (m+1)*DT, obj, K, true);
+        [P,~] = prop_c(D(m)*v(1:d), -v(d+1:end), m*DT, (m+1)*DT, obj, K, true);
         prd(1:d) = prd(1:d) + P;
-        [~,Q] = krylov_prop_c(-v(1:d), D(m)'*v(d+1:end), m*DT, (m+1)*DT, obj, K, true);
+        [~,Q] = prop_c(-v(1:d), D(m)'*v(d+1:end), m*DT, (m+1)*DT, obj, K, true);
         prd(d+1:end) = prd(d+1:end) + Q;
     end
 end

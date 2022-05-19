@@ -11,10 +11,11 @@ function [Y,L] = paradiag(K, N, Tend, y0, obj, precinfo, showeigs)
 
     if showeigs
         assert(precinfo.test)
-        e = eig(full(prec\A)); scatter(real(e), imag(e))
+        cond(full(A))
+        e = eig(full(prec\A)); scatter(real(e), imag(e)), pause
     end
 
-    if isempty(prec), maxiter = size(A, 1); else, maxiter = 20; end
+    if isempty(prec), maxiter = size(A, 1); else, maxiter = 25; end
     [sol,flag,relres,iter] = gmres(A, b, [], [], maxiter, prec);
 
     disp(['Solution of size-' num2str(size(A,1)) ' system found in ' num2str(iter(end)) ' GMRES iterations (flag=' num2str(flag) ', relres=' num2str(relres) ')'])
@@ -29,12 +30,12 @@ function [Y,L] = postprocess(sol, y0, obj, K, dt)
             Y = [y0 reshape(sol(1:numel(sol)/2), d, []) NaN(d,1)];
             Y(:,end) = (eye(d) + dt*K) \ Y(:,end-1);
             L = [NaN(d,1) reshape(sol(numel(sol)/2+1:end), d, []) zeros(d,1)];
-            L(:,1) = (eye(d) + dt*K) \ L(:,2);
         case ObjType.TerminalCost
             Y = [y0 reshape(sol(1:numel(sol)/2), d, [])];
             L = [NaN(d,1) reshape(sol(numel(sol)/2+1:end), d, [])];
-            L(:,1) = (eye(d) + dt*K) \ L(:,2);
     end
+
+    L(:,1) = (eye(d) + dt*K') \ L(:,2);
 end
 
 function prec = get_prec(A, K, N, Tend, obj, precinfo)
@@ -78,7 +79,7 @@ function res = tracking_prec(vec, K, N, d, Tend, obj, precinfo)
     for m=1:M
         sol = [
             D(m)*speye(d) + dt*K, dt/sqrt(gamma)*speye(d);
-            -dt/sqrt(gamma)*speye(d), D(m)'*speye(d) + dt*K;
+            -dt/sqrt(gamma)*speye(d), D(m)'*speye(d) + dt*K';
         ] \ v(:,m);
         v(:,m) = sol;
     end
@@ -116,7 +117,7 @@ function res = tc_prec(vec, K, N, d, Tend, obj, precinfo)
     for m=1:M
         sol = [
             D(m)*speye(d) + dt*K, dt/gamma*speye(d);
-            sparse(d,d), D(m)'*speye(d) + dt*K;
+            sparse(d,d), D(m)'*speye(d) + dt*K';
         ] \ v(:,m);
         v(:,m) = sol;
     end
@@ -157,7 +158,7 @@ function [A,b] = construct_system(K, N, dt, y0, obj)
     end
 
     K = sparse(K);
-    A = kron(speye(2*M), speye(d) + dt*K);
+    A = blkdiag(kron(speye(M), speye(d) + dt*K), kron(speye(M), speye(d) + dt*K'));
     A = A - [
         spdiags(ones((M-1)*d, 1), -d, M*d, M*d), sparse(M*d, M*d);
         sparse(M*d, M*d), spdiags(ones((M-1)*d, 1), -d, M*d, M*d)';
@@ -179,7 +180,7 @@ function [A,b] = construct_system(K, N, dt, y0, obj)
                 sparse(M*d, M*d), dt/obj.gamma*speye(M*d);
                 sparse(M*d, 2*M*d);
             ];
-            A(end-d+1:end,M*d-d+1:M*d) = -speye(d) - dt*K;
-            b(end-d+1:end) = (-speye(d) - dt*K)*obj.y_T;
+            A(end-d+1:end,M*d-d+1:M*d) = -speye(d) - dt*K';
+            b(end-d+1:end) = (-speye(d) - dt*K')*obj.y_T;
     end
 end

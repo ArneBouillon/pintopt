@@ -27,7 +27,7 @@ classdef MP_Track_IE1 < handle
             mp.Psi_b = mp.Psi_;
         end
 
-        function update_krylov(self, S, SP, SQ)
+        function update_subenh(self, S, SP, SQ)
             nonproj = eye(2*self.d) - S*S';
             Pproj = SP*S';
             Qproj = SQ*S';

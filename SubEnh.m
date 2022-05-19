@@ -1,11 +1,11 @@
-classdef Krylov
+classdef SubEnh
     properties
         any
     end
     
    methods
-      function krylov = Krylov(any)
-         krylov.any = any;
+      function subenh = SubEnh(any)
+         subenh.any = any;
       end
    end
     
