@@ -3,11 +3,12 @@ function [yend,l0] = prop_ie_tc(steps, y0, lend, Tstart, Tend, obj, K, deriv)
     d = size(K,1);
     dt = (Tend - Tstart) / steps;
     IpKdt = speye(d) + K*dt;
+    IpKtdt = speye(d) + K'*dt;
     
     ls = NaN(d, steps+1);
     ls(:,end) = lend;
     for i=steps:-1:1
-        ls(:,i) = IpKdt\ls(:,i+1);
+        ls(:,i) = IpKtdt\ls(:,i+1);
     end
     l0 = ls(:,1);
     

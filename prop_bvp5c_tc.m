@@ -6,7 +6,7 @@ function [yend,l0] = prop_bvp5c_tc(y0, lend, Tstart, Tend, obj, K, ~, tol, pts)
 
     f = @(t,yl) [
         -K*yl(1:d) - yl(d+1:end)/obj.gamma;
-        K*yl(d+1:end);
+        K'*yl(d+1:end);
     ];
     fjac = sparse([-K -eye(d)/obj.gamma; zeros(d) K]);
     bounds = @(yla, ylb) [

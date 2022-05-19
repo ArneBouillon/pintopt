@@ -5,6 +5,7 @@ function [yend,l0] = prop_ie_track(steps, y0, lend, Tstart, Tend, obj, K, deriv)
 
     dt = (Tend - Tstart) / steps;
     IpKdt = speye(d) + K*dt;
+    IpKtdt = speye(d) + K'*dt;
 
     b = sparse(fll,1);
     b(1:d) = y0;
@@ -17,7 +18,7 @@ function [yend,l0] = prop_ie_track(steps, y0, lend, Tstart, Tend, obj, K, deriv)
         end
     end
     
-    M = kron(speye(fll/d), -IpKdt) + [
+    M = blkdiag(kron(speye(half/d), -IpKdt), kron(speye(half/d), -IpKtdt)) + [
         sparse(d,fll);
         [
             speye(steps*d), sparse(steps*d,2*d), -dt/sqrt(obj.gamma)*speye(steps*d);
