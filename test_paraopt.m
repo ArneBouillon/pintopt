@@ -60,9 +60,9 @@ prop_f = @(varargin) prop_ie_tc(20, varargin{:});
 prop_c = @(varargin) prop_ie_tc(1, varargin{:});
 % prop_f = @(varargin) prop_bvp5c_tc(varargin{:}, .000001, 50);
 % prop_c = @prop_bvp5c_tc;
-precinfo = Prec(PrecType.Triangular, struct('alpha', .0001, 'test', true), obj);
+precinfo = Prec(PrecType.Square, struct('alpha', -1, 'test', false), obj);
 mp_c = MP_TC_IE1(K, obj, Tend/N);
-[Y,L] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, SubEnh.None, mp_c);
+[Y,L] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, SubEnh.Specialized, mp_c);
 
 %% Example for SubEnh
 d = 1000;

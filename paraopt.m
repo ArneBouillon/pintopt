@@ -206,7 +206,12 @@ end
 
 function res = square_prec(vec, K, prop_c, mp_c, obj, N, DT, precinfo)
     d = size(K, 1);
-    M = N - 1;
+    switch obj.type
+        case ObjType.Tracking
+            M = N - 1;
+        case ObjType.TerminalCost
+            M = N;
+    end
 
     % Step 1: Gamma_alpha
     for m=1:M
