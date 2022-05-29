@@ -1,5 +1,5 @@
 classdef PrecType
     enumeration
-        Tracking, TerminalCost
+        Square, Triangular
     end
 end

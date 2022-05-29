@@ -14,9 +14,9 @@ classdef Prec
             if isfield(props, 'test'), prec.test = props.test; else, prec.test = false; end
 
             switch type
-                case PrecType.Tracking
-                    assert(obj.type == ObjType.Tracking)
-                case PrecType.TerminalCost
+                case PrecType.Square
+                    assert(abs(abs(prec.alpha)-1) < 1e-8)
+                case PrecType.Triangular
                     assert(obj.type == ObjType.TerminalCost)
             end
         end

@@ -172,7 +172,12 @@ function prec = get_prec(A, K, prop_c, mp_c, obj, N, DT, precinfo)
         return
     end
 
-    prec = @(vec) prec_fun(vec, K, prop_c, mp_c, obj, N, DT, precinfo);
+    switch precinfo.type
+        case PrecType.Square
+            prec = @(vec) square_prec(vec, K, prop_c, mp_c, obj, N, DT, precinfo);
+        case PrecType.Triangular
+            prec = @(vec) triangular_prec(vec, K, prop_c, mp_c, obj, N, DT, precinfo);
+    end
 end
 
 function prec = get_test_prec(Afun, d, N, obj, precinfo)
@@ -189,9 +194,9 @@ function prec = get_test_prec(Afun, d, N, obj, precinfo)
     end
 
     switch precinfo.type
-        case PrecType.Tracking
+        case PrecType.Square
             error 'Not implemented'
-        case PrecType.TerminalCost
+        case PrecType.Triangular
             prec = A;
             prec(n/2+1:end,1:n/2) = 0;
             prec(1:d,n/2-d+1:n/2) = precinfo.alpha * prec(d+1:2*d,1:d);
@@ -199,21 +204,17 @@ function prec = get_test_prec(Afun, d, N, obj, precinfo)
     end
 end
 
-function res = prec_fun(vec, K, prop_c, mp_c, obj, N, DT, precinfo)
+function res = square_prec(vec, K, prop_c, mp_c, obj, N, DT, precinfo)
     d = size(K, 1);
-
-    switch precinfo.type % Set the size of the system
-        case PrecType.TerminalCost, M = N;
-        case PrecType.Tracking, M = N - 1;
-    end
+    M = N - 1;
 
     % Step 1: Gamma_alpha
     for m=1:M
         vec((m-1)*d+1:m*d) = vec((m-1)*d+1:m*d) * precinfo.alpha^((m-1)/M);
-        vec(M*d+(m-1)*d+1:M*d+m*d) = vec(M*d+(m-1)*d+1:M*d+m*d) * 1/(precinfo.alpha^((m-1)/M))';
+        vec(M*d+(m-1)*d+1:M*d+m*d) = vec(M*d+(m-1)*d+1:M*d+m*d) * precinfo.alpha^((m-1)/M);
     end
 
-    % Step 2: FF
+    % Step 2: F
     vec = reshape(vec, d, 2*M);
     vec = [ifft(vec(:,1:M).'); ifft(vec(:,M+1:end).')].';
     vec = reshape(vec, 2*M*d, 1)*sqrt(M);
@@ -245,7 +246,7 @@ function res = prec_fun(vec, K, prop_c, mp_c, obj, N, DT, precinfo)
     % Step 5: Gamma_alpha
     for m=1:M
         vec((m-1)*d+1:m*d) = vec((m-1)*d+1:m*d) * precinfo.alpha^(-(m-1)/M);
-        vec(M*d+(m-1)*d+1:M*d+m*d) = vec(M*d+(m-1)*d+1:M*d+m*d) * (precinfo.alpha^((m-1)/M))';
+        vec(M*d+(m-1)*d+1:M*d+m*d) = vec(M*d+(m-1)*d+1:M*d+m*d) * (precinfo.alpha^(-(m-1)/M));
     end
 
     res = vec;
@@ -256,6 +257,100 @@ function res = prec_fun(vec, K, prop_c, mp_c, obj, N, DT, precinfo)
         prd(1:d) = prd(1:d) + P;
         [~,Q] = prop_c(-v(1:d), D(m)'*v(d+1:end), m*DT, (m+1)*DT, obj, K, true);
         prd(d+1:end) = prd(d+1:end) + Q;
+    end
+end
+
+function res = triangular_prec(vec, K, prop_c, mp_c, obj, N, DT, precinfo)
+    d = size(K, 1);
+    M = N;
+
+    vec1 = vec(1:end/2);
+    vec2 = vec(end/2+1:end);
+
+    % PHASE 1: invert the bottom-right block
+    %  Step 1: Gamma_alpha
+    for m=1:M
+        vec2((m-1)*d+1:m*d) = vec2((m-1)*d+1:m*d) * 1/(precinfo.alpha^((m-1)/M))';
+    end
+    %  Step 2: F
+    vec2 = reshape(vec2, d, M);
+    vec2 = ifft(vec2.').';
+    vec2 = reshape(vec2, M*d, 1)*sqrt(M);
+    %  Step 3: Solve systems
+    D = zeros(M,1); D(2) = -precinfo.alpha^(1/M); D = M*ifft(D);
+    vec2 = reshape(vec2, d, M);
+    for m=1:M
+        if isempty(mp_c)
+            [sol,~,~,~] = gmres(...
+                @subsys2, ...
+                vec2(:,m), ...
+                [], 1e-10, d...
+            );
+            vec2(:,m) = sol;
+        else
+            vec2(:,m) = (mp_c.I + D(m)'*mp_c.Phi_b)\(mp_c.I*vec2(:,m));
+        end
+    end
+    vec2 = vec2(:);
+    %  Step 4: F'
+    vec2 = reshape(vec2, d, M);
+    vec2 = fft(vec2.').';
+    vec2 = reshape(vec2, M*d, 1)/sqrt(M);
+    %  Step 5: Gamma_alpha
+    for m=1:M
+        vec2((m-1)*d+1:m*d) = vec2((m-1)*d+1:m*d) * (precinfo.alpha^((m-1)/M))';
+    end
+    
+    % PHASE 2: invert the rest of the matrix
+    %  Step 0: update with previous solution
+    for m=1:M
+        [P,~] = prop_c(zeros(d,1), vec2((m-1)*d+1:m*d), m*DT, (m+1)*DT, obj, K, true);
+        vec1((m-1)*d+1:m*d) = vec1((m-1)*d+1:m*d) + P;
+    end
+    
+    %  Step 1: Gamma_alpha
+    for m=1:M
+        vec1((m-1)*d+1:m*d) = vec1((m-1)*d+1:m*d) * precinfo.alpha^((m-1)/M);
+    end
+    %  Step 2: F
+    vec1 = reshape(vec1, d, M);
+    vec1 = ifft(vec1.').';
+    vec1 = reshape(vec1, M*d, 1)*sqrt(M);
+    %  Step 3: Solve systems
+    D = zeros(M,1); D(2) = -precinfo.alpha^(1/M); D = M*ifft(D);
+    vec1 = reshape(vec1, d, M);
+    for m=1:M
+        if isempty(mp_c)
+            [sol,~,~,~] = gmres(...
+                @subsys1, ...
+                vec1(:,m), ...
+                [], 1e-10, d...
+            );
+            vec1(:,m) = sol;
+        else
+            vec1(:,m) = (mp_c.I + D(m)*mp_c.Phi_f)\(mp_c.I*vec1(:,m));
+        end
+    end
+    vec1 = vec1(:);
+    %  Step 4: F'
+    vec1 = reshape(vec1, d, M);
+    vec1 = fft(vec1.').';
+    vec1 = reshape(vec1, M*d, 1)/sqrt(M);
+    %  Step 5: Gamma_alpha
+    for m=1:M
+        vec1((m-1)*d+1:m*d) = vec1((m-1)*d+1:m*d) * precinfo.alpha^(-(m-1)/M);
+    end
+    
+    res = [vec1; vec2];
+
+    function prd = subsys1(v)
+        [P,~] = prop_c(D(m)*v, zeros(d,1), m*DT, (m+1)*DT, obj, K, true);
+        prd = v + P;
+    end
+
+    function prd = subsys2(v)
+        [~,Q] = prop_c(zeros(d,1), D(m)'*v, m*DT, (m+1)*DT, obj, K, true);
+        prd = v + Q;
     end
 end
 

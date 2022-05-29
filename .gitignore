@@ -1,3 +1,4 @@
 *.asv
+*.mat
 conv.m
 thesis*.m

@@ -2,7 +2,7 @@
 % Good example of eigenvalue diff between alpha=1 and alpha=-1:
 %  d = 10, N = 100, Tend = 1e-4, gamma = 1e-4
 d = 100;
-N = 1000;
+N = 100;
 
 Tend = 1e-2;
 xbegin = 0;
@@ -23,7 +23,7 @@ y0 = exp(-100*(x-.5).^2);
 yd = @(t) y0;
 obj = Obj(ObjType.Tracking, gamma, yd);
 
-precinfo = Prec(PrecType.Tracking, struct('alpha', -1, 'test', false), obj);
+precinfo = Prec(PrecType.Square, struct('alpha', -1, 'test', false), obj);
 tic, [Y,L] = paradiag(K, N, Tend, y0, obj, precinfo); toc
 return
 
@@ -49,7 +49,7 @@ y0 = exp(-100*(x-.5).^2);
 yT = .5*exp(-100*(x-.25).^2)+.5*exp(-100*(x-.75).^2);
 obj = Obj(ObjType.TerminalCost, gamma, yT);
 
-precinfo = Prec(PrecType.TerminalCost, struct('alpha', .0001, 'test', true), obj);
+precinfo = Prec(PrecType.Triangular, struct('alpha', -.001, 'test', false), obj);
 tic, [Y,L] = paradiag(K, N, Tend, y0, obj, precinfo); toc
 
 %% Test of self-adjoint and non-self-adjoint equation against bvp5c
@@ -67,8 +67,8 @@ yd = @(t) t/Tend * yT + (Tend-t)/Tend * y0;
 
 obj_tr = Obj(ObjType.Tracking, gamma, yd);
 obj_tc = Obj(ObjType.TerminalCost, gamma, yT);
-precinfo_tr = Prec(PrecType.Tracking, struct('alpha', -1, 'test', true), obj_tr);
-precinfo_tc = Prec(PrecType.TerminalCost, struct('alpha', -1, 'test', true), obj_tc);
+precinfo_tr = Prec(PrecType.Square, struct('alpha', -1, 'test', true), obj_tr);
+precinfo_tc = Prec(PrecType.Triangular, struct('alpha', -1, 'test', true), obj_tc);
 
 %% -> Symmetric tracking
 f = @(t,yl) [
