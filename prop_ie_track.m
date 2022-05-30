@@ -1,4 +1,4 @@
-function [yend,l0] = prop_ie_track(steps, y0, lend, Tstart, Tend, obj, K, deriv)
+function [yend,l0] = prop_ie_track(steps, y0, lend, Tstart, Tend, obj, K, normalize)
     d = size(K,1);
     fll = 2*(steps+1)*d;
     half = fll / 2;
@@ -11,7 +11,7 @@ function [yend,l0] = prop_ie_track(steps, y0, lend, Tstart, Tend, obj, K, deriv)
     b(1:d) = y0;
     b(end-d+1:end) = lend;
 
-    if ~deriv
+    if ~normalize
         for i=1:steps
             idx = (i-1)*d+1:i*d;
             b(idx+half) = eye(d)*dt/sqrt(obj.gamma)*obj.y_d(Tstart + i*dt);

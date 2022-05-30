@@ -1,5 +1,5 @@
 % TODO: Transform this to [Gander]'s discretisation instead of our own?
-function [yend,l0] = prop_ie_tc(steps, y0, lend, Tstart, Tend, obj, K, deriv)
+function [yend,l0] = prop_ie_tc(steps, y0, lend, Tstart, Tend, obj, K, ~)
     d = size(K,1);
     dt = (Tend - Tstart) / steps;
     IpKdt = speye(d) + K*dt;

@@ -106,21 +106,21 @@ function [Y,L,k,res] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ..
         L(:,2:1+size(dL,2)) = L(:,2:1+size(dL,2)) + dL;
     end
 
-    function [P,Q] = subenh_prop_c(dy, dl, tstart, tend, obj, K, deriv)
+    function [P,Q] = subenh_prop_c(dy, dl, tstart, tend, obj, K, normalize)
         if subenh.any
             nn = tend / DT;
             
             comps = S' * [dy; dl];
             ylapprox = S * comps; yapprox = ylapprox(1:d); lapprox = ylapprox(d+1:end);
-            [P,Q] = prop_c(dy - yapprox, dl - lapprox, tstart, tend, obj, K, deriv);
+            [P,Q] = prop_c(dy - yapprox, dl - lapprox, tstart, tend, obj, K, normalize);
             P = P + SP * comps;
             Q = Q + SQ * comps;
-            if ~deriv
+            if ~normalize
                 P = P - Pc00(:,nn) + P00(:,nn);
                 Q = Q - Qc00(:,nn) + Q00(:,nn);
             end
         else
-            [P,Q] = prop_c(dy, dl, tstart, tend, obj, K, deriv);
+            [P,Q] = prop_c(dy, dl, tstart, tend, obj, K, normalize);
         end
     end
 end

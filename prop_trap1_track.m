@@ -1,4 +1,4 @@
-function [yend,l0] = prop_trap1_track(y0, lend, Tstart, Tend, obj, K, deriv)
+function [yend,l0] = prop_trap1_track(y0, lend, Tstart, Tend, obj, K, normalize)
     d = size(K,1);
     dt = Tend - Tstart;
     Ix = speye(d);
@@ -13,7 +13,7 @@ function [yend,l0] = prop_trap1_track(y0, lend, Tstart, Tend, obj, K, deriv)
     b = [
         y0;
         zeros(d,1);
-        (1-deriv) * (dt/2/sqrt(obj.gamma)*(obj.y_d(Tstart) + obj.y_d(Tend)));
+        (1-normalize) * (dt/2/sqrt(obj.gamma)*(obj.y_d(Tstart) + obj.y_d(Tend)));
         lend;
     ];
 
