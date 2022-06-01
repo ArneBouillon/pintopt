@@ -21,6 +21,10 @@
 %                 Default: 10^-8
 %  - gmrestol:  Relative residual tolerance of the inner GMRES solver
 %                 Default: 10^-3
+%  - gmresmxit: Maximum number of iterations of the inner GMRES solver
+%                 Default: 50
+%  - silent:    Mute all output to the console
+%                 Default: false
 %  - Y0:        Initial guesses for the Y variables
 %                 Default: random
 %  - L0:        Initial guesses for the L variables
@@ -31,6 +35,8 @@
 %  - L:      Discretised adjoint
 %  - k:      Number of (outer) ParaOpt iterations
 %  - res:    An array containing the residual norm in each iteration
+%  - kgmres: An array containing the number of GMRES iterations in each
+%            outer ParaOpt iteration
 %
 % Internal data layout:
 %  - Size of systems: - 2*d*(N-1) for tracking-type objectives
@@ -38,8 +44,9 @@
 %  - Y :: (d,N+1):    Y_0, Y_1, ..., Y_N at second indices 1, 2, ..., N+1
 %  - L :: (d,N+1):    L_0, L_1, ..., L_N at second indices 1, 2, ..., N+1
 %
-function [Y,L,k,res] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ...
-                               subenh, mp_c, tol, gmrestol, Y0, L0)
+function [Y,L,k,res,kgmres] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ...
+                                      subenh, mp_c, tol, gmrestol, gmresmxit, ...
+                                      silent, Y0, L0)
     d = size(K,1);
     DT = Tend / N;
 
@@ -49,6 +56,8 @@ function [Y,L,k,res] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ..
     if ~exist('mp_c', 'var') || isempty(mp_c), mp_c = []; end
     if ~exist('tol', 'var') || isempty(tol), tol = 10^-8; end
     if ~exist('gmrestol', 'var') || isempty(gmrestol), gmrestol = 10^-3; end
+    if ~exist('gmresmxit', 'var') || isempty(gmresmxit), gmresmxit = 50; end
+    if ~exist('silent', 'var') || isempty(silent), silent = false; end
     if ~exist('Y0', 'var') || isempty(Y0), Y0 = randn(d, N+1); end
     if ~exist('L0', 'var') || isempty(L0), L0 = randn(d, N+1); end
 
@@ -65,7 +74,7 @@ function [Y,L,k,res] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ..
         end
     end
 
-    k = 0; gmresiter = 0; res = []; flag = NaN; relres = NaN;
+    k = 0; gmresiter = 0; res = []; kgmres = []; flag = NaN; relres = NaN;
     while true
         Ps = zeros(d, N); Qs = zeros(d, N);
         for n=1:N
@@ -90,7 +99,8 @@ function [Y,L,k,res] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ..
         F = get_F(Y, L, Ps, Qs, obj);
         nrm = norm(F);
         res = [res nrm];
-        disp(['Iteration ' num2str(k) ': ' num2str(nrm) ' in ' num2str(gmresiter(end)) ' GMRES iterations (flag=' num2str(flag) ', relres=' num2str(relres) ')'])
+        if k, kgmres = [kgmres gmresiter(end)]; end
+        if ~silent, disp(['Iteration ' num2str(k) ': ' num2str(nrm) ' in ' num2str(gmresiter(end)) ' GMRES iterations (flag=' num2str(flag) ', relres=' num2str(relres) ')']), end
         if nrm < tol, break, end
         k = k + 1;
 
@@ -98,7 +108,7 @@ function [Y,L,k,res] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ..
         apply_jac_fun = get_apply_jac_fun(K, @subenh_prop_c, obj, N, DT);
         prec = get_prec(apply_jac_fun, K, @subenh_prop_c, mp_c, obj, N, DT, precinfo);
 
-        [delta,flag,relres,gmresiter] = gmres(apply_jac_fun, -F, [], gmrestol, min(100, numel(F)), prec);
+        [delta,flag,relres,gmresiter] = gmres(apply_jac_fun, -F, [], gmrestol, min(gmresmxit, numel(F)), prec);
 
         dY = reshape(delta(1:numel(delta)/2), d, []);
         dL = reshape(delta(numel(delta)/2+1:end), d, []);

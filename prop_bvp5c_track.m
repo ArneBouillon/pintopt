@@ -1,5 +1,5 @@
 % TODO: y_d
-function [yend,l0] = prop_bvp5c_track(y0, lend, Tstart, Tend, obj, K, ~, tol, pts)
+function [yend,l0] = prop_bvp5c_track(y0, lend, Tstart, Tend, obj, K, normalize, tol, pts)
     if ~exist('tol', 'var'), tol = 1e-6; end
     if ~exist('pts', 'var'), pts = 5; end
 
@@ -7,7 +7,7 @@ function [yend,l0] = prop_bvp5c_track(y0, lend, Tstart, Tend, obj, K, ~, tol, pt
 
     f = @(t,yl) [
         -K*yl(1:d) - yl(d+1:end)/sqrt(obj.gamma);
-        -yl(1:d)/sqrt(obj.gamma) + K'*yl(d+1:end);
+        (obj.y_d(t)*(1-normalize)-yl(1:d))/sqrt(obj.gamma) + K'*yl(d+1:end);
     ];
     fjac = sparse([-K -eye(d)/sqrt(obj.gamma); -eye(d)/sqrt(obj.gamma) K]);
     bounds = @(yla, ylb) [

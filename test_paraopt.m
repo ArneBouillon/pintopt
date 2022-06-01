@@ -1,5 +1,5 @@
 %% Tracking case
-d = 100;
+d = 10;
 N = 10;
 
 Tend = 1e-2;
@@ -25,16 +25,14 @@ DT = Tend/N;
 gh=DT/sqrt(gamma);
 sh=DT*eig(K);
 
-prop_f = @(varargin) prop_ie_track(10, varargin{:});
+prop_f = @(varargin) prop_ie_track(100, varargin{:});
 prop_c = @(varargin) prop_ie_track(1, varargin{:});
 % prop_c = @prop_trap1_track;
 % prop_f = @(varargin) prop_bvp5c_track(varargin{:}, .000001, 50);
-% prop_c = @prop_bvp5c_track;
 mp_c = MP_Track_IE1(K, obj, Tend/N);
 precinfo = Prec(PrecType.Square, struct('alpha', -1, 'test', false), obj);
-tic, [Y,L] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, SubEnh.Specialized, mp_c, 1e-6, 1e-4); toc
+tic, [Y,L] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, SubEnh.None, mp_c, 1e-6, 1e-4); toc
 
-return
 %% Terminal-cost case
 d = 100;
 N = 5;
@@ -56,13 +54,13 @@ y0 = exp(-100*(x-.5).^2);
 yT = .5*exp(-100*(x-.25).^2)+.5*exp(-100*(x-.75).^2);
 obj = Obj(ObjType.TerminalCost, gamma, yT);
 
-prop_f = @(varargin) prop_ie_tc(20, varargin{:});
-prop_c = @(varargin) prop_ie_tc(1, varargin{:});
+prop_f = @(varargin) prop_ie_tc(100, varargin{:}, true);
+prop_c = @(varargin) prop_ie_tc(1, varargin{:}, false);
 % prop_f = @(varargin) prop_bvp5c_tc(varargin{:}, .000001, 50);
 % prop_c = @prop_bvp5c_tc;
 precinfo = Prec(PrecType.Square, struct('alpha', -1, 'test', false), obj);
-mp_c = MP_TC_IE1(K, obj, Tend/N);
-[Y,L] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, SubEnh.Specialized, mp_c);
+mp_c = [];MP_TC_IE1(K, obj, Tend/N);
+[Y,L] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, SubEnh.None, mp_c);
 
 %% Example for SubEnh
 d = 1000;
