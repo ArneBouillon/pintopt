@@ -1,3 +1,7 @@
+%% Tracking implicit Euler propagator
+% This uses implicit Euler to solve the ParaOpt sub-problems for tracking
+% problems.
+%
 function [yend,l0] = prop_ie_track(steps, y0, lend, Tstart, Tend, obj, K, normalize)
     d = size(K,1);
     fll = 2*(steps+1)*d;

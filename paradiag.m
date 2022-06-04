@@ -1,6 +1,26 @@
 %% ParaDiag
+% Perform ParaDiag to calculate the optimal control u(t) of the equation
+%   (1)  y'(t) = -Ky(t) + u(t),    y(0) = y0
+% under a certain objective function.
 %
-function [Y,L,K_gmres] = paradiag(K, N, Tend, y0, obj, precinfo, showeigs)
+% Parameters:
+%  - K:         Matrix in the ODE (1) to control
+%  - N:         There are `N+1` time discretisation points, at distance
+%               `Tend/N` from each other
+%  - Tend:      The end of the time interval [0, Tend] in which to solve
+%               the problem
+%  - y0:        The initial value in the ODE (1)
+%  - obj:       Info about the objective function (see Obj class)
+%  - precinfo:  Info about the preconditioner to use
+%                 Default: No preconditioner
+%  - showeigs:  Undocumented (used for creating figures)
+%
+% Return values:
+%  - Y:      Discretised solution to (1)
+%  - L:      Discretised adjoint
+%  - kgmres: The number of GMRES iterations
+%
+function [Y,L,kgmres] = paradiag(K, N, Tend, y0, obj, precinfo, showeigs)
     if ~exist('precinfo', 'var') || isempty(precinfo), precinfo = []; end
     if ~exist('showeigs', 'var') || isempty(showeigs), showeigs = false; end
 
@@ -18,8 +38,8 @@ function [Y,L,K_gmres] = paradiag(K, N, Tend, y0, obj, precinfo, showeigs)
     if isempty(prec), maxiter = size(A, 1); else, maxiter = 25; end
     [sol,flag,relres,iter] = gmres(A, b, [], [], maxiter, prec);
 
-    K_gmres = iter(end);
-    disp(['Solution of size-' num2str(size(A,1)) ' system found in ' num2str(K_gmres) ' GMRES iterations (flag=' num2str(flag) ', relres=' num2str(relres) ')'])
+    kgmres = iter(end);
+    disp(['Solution of size-' num2str(size(A,1)) ' system found in ' num2str(kgmres) ' GMRES iterations (flag=' num2str(flag) ', relres=' num2str(relres) ')'])
     [Y,L] = postprocess(sol, y0, obj, K, dt);
 end
 

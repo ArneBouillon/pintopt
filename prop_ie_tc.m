@@ -1,4 +1,7 @@
-% TODO: Transform this to [Gander]'s discretisation instead of our own?
+%% Terminal-cost implicit Euler propagator
+% This uses implicit Euler to solve the ParaOpt sub-problems for
+% terminal-cost problems.
+%
 function [yend,l0] = prop_ie_tc(steps, y0, lend, Tstart, Tend, obj, K, ~, fdto)
     if ~exist('fdto','var') || isempty(fdto)
         fdto = false;

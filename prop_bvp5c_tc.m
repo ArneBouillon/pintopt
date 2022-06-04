@@ -1,3 +1,7 @@
+%% Terminal-cost BVP5C propagator
+% This uses MATLAB's built-in BVP5C boundary-value--problem solver to solve
+% the ParaOpt sub-problems for terminal-cost problems.
+%
 function [yend,l0] = prop_bvp5c_tc(y0, lend, Tstart, Tend, obj, K, ~, tol, pts)
     if ~exist('tol', 'var') || isempty(tol), tol = 1e-6; end
     if ~exist('pts', 'var') || isempty(pts), pts = 5; end

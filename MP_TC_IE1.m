@@ -1,3 +1,6 @@
+%% Multiplied propagator for single-step terminal-cost implicit Euler
+% See Appendix C of the thesis for information about MPs
+%
 classdef MP_TC_IE1 < handle
     properties
         d

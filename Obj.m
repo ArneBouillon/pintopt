@@ -22,6 +22,9 @@ classdef Obj
         function obj = Obj(type, gamma, varargin)
             obj.type = type;
             obj.gamma = gamma;
+            
+            assert(numel(varargin) == 1)
+            
             switch type
                 case ObjType.TerminalCost, obj.y_T = varargin{1};
                 case ObjType.Tracking, obj.y_d = varargin{1};

@@ -17,3 +17,8 @@ the time interval into smaller parts. The original terminal-cost method is
 described in [this paper by Gander et al.](https://doi.org/10.1137/19M1292291),
 and extensions are offered in the thesis. In particular, the function supports
 subspace enhancement and ParaDiag-based preconditioners.
+
+## Tests
+The [`test_paradiag.m`](test_paradiag.m) and [`test_paraopt.m`](test_paraopt.m)
+files contain tests of the `paradiag` and `paraopt` functions, respectively,
+demonstrating their main features.
