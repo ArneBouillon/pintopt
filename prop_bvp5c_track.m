@@ -1,7 +1,7 @@
 % TODO: y_d
 function [yend,l0] = prop_bvp5c_track(y0, lend, Tstart, Tend, obj, K, normalize, tol, pts)
-    if ~exist('tol', 'var'), tol = 1e-6; end
-    if ~exist('pts', 'var'), pts = 5; end
+    if ~exist('tol', 'var') || isempty(tol), tol = 1e-6; end
+    if ~exist('pts', 'var') || isempty(pts), pts = 5; end
 
     d = size(K,1);
 

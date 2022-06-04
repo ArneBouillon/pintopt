@@ -23,6 +23,8 @@
 %                 Default: 10^-3
 %  - gmresmxit: Maximum number of iterations of the inner GMRES solver
 %                 Default: 50
+%  - mxit:      Maximum number of ParaOpt iterations
+%                 Default: no max
 %  - silent:    Mute all output to the console
 %                 Default: false
 %  - Y0:        Initial guesses for the Y variables
@@ -46,7 +48,7 @@
 %
 function [Y,L,k,res,kgmres] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, ...
                                       subenh, mp_c, tol, gmrestol, gmresmxit, ...
-                                      silent, Y0, L0)
+                                      mxit, silent, Y0, L0)
     d = size(K,1);
     DT = Tend / N;
 
@@ -57,6 +59,7 @@ function [Y,L,k,res,kgmres] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, preci
     if ~exist('tol', 'var') || isempty(tol), tol = 10^-8; end
     if ~exist('gmrestol', 'var') || isempty(gmrestol), gmrestol = 10^-3; end
     if ~exist('gmresmxit', 'var') || isempty(gmresmxit), gmresmxit = 50; end
+    if ~exist('mxit', 'var') || isempty(mxit), mxit = inf; end
     if ~exist('silent', 'var') || isempty(silent), silent = false; end
     if ~exist('Y0', 'var') || isempty(Y0), Y0 = randn(d, N+1); end
     if ~exist('L0', 'var') || isempty(L0), L0 = randn(d, N+1); end
@@ -102,6 +105,7 @@ function [Y,L,k,res,kgmres] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, preci
         if k, kgmres = [kgmres gmresiter(end)]; end
         if ~silent, disp(['Iteration ' num2str(k) ': ' num2str(nrm) ' in ' num2str(gmresiter(end)) ' GMRES iterations (flag=' num2str(flag) ', relres=' num2str(relres) ')']), end
         if nrm < tol, break, end
+        if k >= mxit, break, end
         k = k + 1;
 
         if subenh.any && ~isempty(mp_c), mp_c.update_subenh(S, SP, SQ), end

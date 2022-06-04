@@ -89,5 +89,5 @@ gh = DT/sqrt(gamma);
 
 prop_f = @(varargin) prop_ie_track(20, varargin{:});
 prop_c = @(varargin) prop_ie_track(1, varargin{:});
-precinfo = [];
+precinfo = Prec(PrecType.Square, struct('alpha', -1, 'test', false), obj);
 [Y,L] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, SubEnh.Specialized);

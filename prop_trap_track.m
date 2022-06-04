@@ -34,13 +34,6 @@ function [yend,l0] = prop_trap_track(steps, y0, lend, Tstart, Tend, obj, K, norm
         Ox Ox Ox Ix;
     ];
 
-%     spy(M), figure, spy(MM), figure, spy(M-MM), pause
-%     b = [
-%         y0;
-%         zeros(d,1);
-%         (1-normalize) * (dt/2/sqrt(obj.gamma)*(obj.y_d(Tstart) + obj.y_d(Tend)));
-%         lend;
-%     ];
     b = [
         y0;
         zeros(steps*d,1);
