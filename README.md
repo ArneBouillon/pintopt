@@ -2,8 +2,8 @@
 
 This implementation contains both the ParaOpt and ParaDiag algorithms to
 perform parallel-in-time (PinT) optimal control. Detailed documentation
-can be found in the M-files of the methods themselves, as well as in the
-thesis which this code accompanies.
+can be found in the M-files of the methods themselves, as well as in Appendix
+C of the thesis which this code accompanies.
 
 ## ParaDiag: Solving the all-at-once system with circulant preconditioners
 [The `paradiag` function](paradiag.m) uses the ParaDiag method for solving

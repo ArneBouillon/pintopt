@@ -59,7 +59,7 @@ prop_c = @(varargin) prop_ie_tc(1, varargin{:}, false);
 % prop_f = @(varargin) prop_bvp5c_tc(varargin{:}, .000001, 50);
 % prop_c = @prop_bvp5c_tc;
 precinfo = Prec(PrecType.Square, struct('alpha', -1, 'test', false), obj);
-mp_c = [];MP_TC_IE1(K, obj, Tend/N);
+mp_c = MP_TC_IE1(K, obj, Tend/N);
 [Y,L] = paraopt(K, N, Tend, y0, prop_f, prop_c, obj, precinfo, SubEnh.None, mp_c);
 
 %% Example for SubEnh

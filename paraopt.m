@@ -249,9 +249,9 @@ function res = square_prec(vec, K, prop_c, mp_c, obj, N, DT, precinfo)
             );
         else
             sol = [
-                mp_c.I + D(m)*mp_c.Phi_f, mp_c.Psi_f;
-                -mp_c.Psi_b, mp_c.I + D(m)'*mp_c.Phi_b;
-            ] \ [mp_c.I*vec((m-1)*d+1:m*d); mp_c.I*vec(M*d+(m-1)*d+1:M*d+m*d)];
+                mp_c.Xi_f + D(m)*mp_c.XiPhi_f, mp_c.XiPsi_f;
+                -mp_c.XiPsi_b, mp_c.Xi_b + D(m)'*mp_c.XiPhi_b;
+            ] \ [mp_c.Xi_f*vec((m-1)*d+1:m*d); mp_c.Xi_b*vec(M*d+(m-1)*d+1:M*d+m*d)];
         end
         vec((m-1)*d+1:m*d) = sol(1:d);
         vec(M*d+(m-1)*d+1:M*d+m*d) = sol(d+1:end);
@@ -307,7 +307,7 @@ function res = triangular_prec(vec, K, prop_c, mp_c, obj, N, DT, precinfo)
             );
             vec2(:,m) = sol;
         else
-            vec2(:,m) = (mp_c.I + D(m)'*mp_c.Phi_b)\(mp_c.I*vec2(:,m));
+            vec2(:,m) = (mp_c.Xi_b + D(m)'*mp_c.XiPhi_b)\(mp_c.Xi_b*vec2(:,m));
         end
     end
     vec2 = vec2(:);
@@ -347,7 +347,7 @@ function res = triangular_prec(vec, K, prop_c, mp_c, obj, N, DT, precinfo)
             );
             vec1(:,m) = sol;
         else
-            vec1(:,m) = (mp_c.I + D(m)*mp_c.Phi_f)\(mp_c.I*vec1(:,m));
+            vec1(:,m) = (mp_c.Xi_f + D(m)*mp_c.XiPhi_f)\(mp_c.Xi_f*vec1(:,m));
         end
     end
     vec1 = vec1(:);
